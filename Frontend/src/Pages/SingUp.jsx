@@ -1,35 +1,40 @@
-import React, { useState, useContext } from 'react';
-import girl from '../assets/girl.png';
+import axios from "axios";
+import { useContext, useState } from "react";
 import { IoIosEye, IoIosEyeOff } from "react-icons/io";
-import { useNavigate } from 'react-router-dom';
-import { UserDataContext } from '../Context/userContext';
-import axios from 'axios';
-
+import { useNavigate } from "react-router-dom";
+import girl from "../assets/girl.png";
+import { UserDataContext } from "../Context/UserContext";
 function SignUp() {
   const [showPassword, setShowPassword] = useState(false);
-  const { value } = useContext(UserDataContext);
+  const { serverUrl, setUserData } = useContext(UserDataContext); 
   const navigation = useNavigate();
-
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [err, setErr] = useState('');
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [password, setPassword] = useState("");
+  const [err, setErr] = useState("");
 
   const handleSignUp = async (e) => {
     e.preventDefault();
     setErr("");
+    setLoading(true);
 
     try {
-      const result = await axios.post(`${value.serverUrl}/api/auth/singup`, {
-        name,
-        email,
-        password,
-      }, { withCredentials: true });
+      const result = await axios.post(
+        `${serverUrl}/api/auth/signup`,
+        { name, email, password },
+        { withCredentials: true }
+        // console.log(result)
+      );
 
-      console.log(result.data);
+      setUserData(result.data);
+      setLoading(false);
+      navigation("/customize"); 
     } catch (error) {
-      console.error(error);
-      setErr(error.response?.data?.message || "Something went wrong.");
+      console.log(error);
+      setUserData(null);
+      setLoading(false);
+      setErr(error.response?.data?.message || "Something went wrong"); 
     }
   };
 
@@ -38,14 +43,21 @@ function SignUp() {
       <div className="w-[90%] max-w-6xl h-[90%] shadow-2xl rounded-2xl flex overflow-hidden bg-white">
         {/* Left Side - Image */}
         <div className="hidden md:flex w-1/2 bg-black relative">
-          <img src={girl} alt="girl" className="object-cover w-full h-full opacity-80" />
-          <div className="absolute bottom-6 left-6 text-white text-xl font-bold">Virtual Assistant</div>
+          <img
+            src={girl}
+            alt="girl"
+            className="object-cover w-full h-full opacity-80"
+          />
+          <div className="absolute bottom-6 left-6 text-white text-xl font-bold">
+            Virtual Assistant
+          </div>
         </div>
 
         {/* Right Side - Form */}
         <div className="w-full md:w-1/2 p-10 flex flex-col justify-center relative">
           <h1 className="text-3xl font-bold text-center mb-6">
-            Register to <span className="text-blue-500">Virtual Assistance</span>
+            Register to{" "}
+            <span className="text-blue-500">Virtual Assistance</span>
           </h1>
 
           <form onSubmit={handleSignUp} className="space-y-5">
@@ -89,16 +101,21 @@ function SignUp() {
 
             <button
               type="submit"
-              className="w-full py-3 bg-blue-500 text-white text-lg rounded-full hover:bg-blue-600 transition"
+              disabled={loading}
+              className={`w-full py-3 text-white text-lg rounded-full transition ${
+                loading
+                  ? "bg-gray-400 cursor-not-allowed"
+                  : "bg-blue-500 hover:bg-blue-600"
+              }`}
             >
-              Sign Up
+              {loading ? "Signing Up..." : "Sign Up"}
             </button>
 
             <p className="text-center text-gray-600">
               Already have an account?{" "}
               <span
                 className="text-blue-600 cursor-pointer font-medium"
-                onClick={() => navigation('/singin')}
+                onClick={() => navigation("/signin")}
               >
                 Sign In
               </span>

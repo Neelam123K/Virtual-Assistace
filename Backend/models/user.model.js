@@ -15,13 +15,13 @@ const useSchema = new mongoose.Schema({
     required: true
   },
   assistantName: {
-    type: String,
+    type: String
   },
   assistantImage: {
-    type: String,
+    type: String
   },
   history: [{
-    type: String,
+    type: String
   }],
 },{timestamps: true});
 
