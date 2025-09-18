@@ -21,7 +21,7 @@ Your task is to understand the user's natural language input and respond with a 
 
 User input: "${command}"`;
 
-   const result = await axios.post(apiUrl, {
+   const result = await axios.post(`${serverUrl}/api/user/asktoassistant`, {
      contents: [
        {
          parts: [{ text: prompt }]
