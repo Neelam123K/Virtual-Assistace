@@ -1,4 +1,4 @@
-import React,{useContext, useEffect, useState, useRef} from "react";
+import React, { useContext, useEffect, useState, useRef } from "react";
 import { UserDataContext } from "../Context/UserContext";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
@@ -34,31 +34,47 @@ function Home() {
 
   // ✅ Speak
   const speak = (text) => {
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = "hi-IN";
-    const voices = window.speechSynthesis.getVoices();
-    const hindiVoice = voices.find(v => v.lang === "hi-IN");
-    if (hindiVoice) {
-      utterance.voice = hindiVoice;
-    }
+  if (!text || !userData) return;
 
-    isSpeakingRef.current = true;
-    utterance.onend = () => {
-      setAiText("");
-      setTimeout(() => {
-        startRecognition();
-      }, 800);
-      
-    };
-    synth.cancel();
-    synth.speak(utterance);
+  const utterance = new SpeechSynthesisUtterance(text);
+  utterance.lang = "hi-IN";
+
+  let voices = window.speechSynthesis.getVoices();
+  const setVoiceAndSpeak = () => {
+    voices = window.speechSynthesis.getVoices();
+    const hindiVoice = voices.find(v => v.lang === "hi-IN");
+    if (hindiVoice) utterance.voice = hindiVoice;
+    window.speechSynthesis.speak(utterance);
   };
+
+  if (voices.length === 0) {
+    window.speechSynthesis.onvoiceschanged = setVoiceAndSpeak;
+  } else {
+    setVoiceAndSpeak();
+  }
+
+  isSpeakingRef.current = true;
+
+  utterance.onend = () => {
+    isSpeakingRef.current = false;
+    setAiText("");
+    setTimeout(() => startRecognition(), 800);
+  };
+};
+
 
   // ✅ Handle commands
   const handleCommand = (data) => {
-    const { type, userInput, response } = data;
+    if (!data) return;
+
+    let { type = "general", userInput = "", response = "" } = data;
+
+    response = response.replace(/```json|```/g, "").trim();
+
+    setAiText(response);
     speak(response);
-    // const query = encodeURIComponent(userInput);
+
+    const query = encodeURIComponent(userInput);
 
     switch (type) {
       case "google_search":
@@ -81,7 +97,8 @@ function Home() {
         window.open(`https://www.youtube.com/results?search_query=${query}`, "_blank");
         break;
       default:
-        console.log("Unknown command:", type);
+        // Unknown/general command → just speak the response
+        console.log("Assistant response:", response);
     }
   };
 
@@ -95,20 +112,20 @@ function Home() {
     recognition.interimResults = false;
     recognitionRef.current = recognition;
 
-    let isMounted = true; //flaf to avoid setstate
+    let isMounted = true;
 
-    const startTimeout = setTimeout(() => {
-      if(isMounted && !isSpeakingRef.current && !isRecognizingRef.current) {
+    const startRecognition = () => {
+      if (!isSpeakingRef.current && !isRecognizingRef.current) {
         try {
           recognition.start();
-          console.log("Recognition requested to start");
+          console.log("Recognition started");
         } catch (e) {
-          if(e.name !== "InvalidStateError"){
-            console.error(e);
-          }
+          if (e.name !== "InvalidStateError") console.error(e);
         }
       }
-    }, 1000);
+    };
+
+    setTimeout(() => startRecognition(), 1000);
 
     recognition.onstart = () => {
       isRecognizingRef.current = true;
@@ -118,117 +135,64 @@ function Home() {
     recognition.onend = () => {
       isRecognizingRef.current = false;
       setListening(false);
-      if (isMounted && !isSpeakingRef.current) {
-       setTimeout(() => {
-        if(isMounted) {
-          try{
-            recognition.start();
-            console.log("Recognition restarted");
-          } catch (e) {
-            if(e.name !== "InvalidStateError") console.error(e);
-          }
-        }
-       }, 1000);
-      }
+      if (isMounted && !isSpeakingRef.current) setTimeout(startRecognition, 1000);
     };
 
     recognition.onerror = (event) => {
       console.warn("Recognition error:", event.error);
       isRecognizingRef.current = false;
       setListening(false);
-      if (event.error !== "aborted" && isMounted && !isSpeakingRef.current) {
-        setTimeout(() => {
-          if(isMounted) {
-            try {
-              recognition.start();
-              console.log("Recognition restarted after error")
-            } catch(e){
-              if(e.name !== "InvalidStateError") console.error(e)
-            }
-          }
-        },1000);
-      }
+      if (event.error !== "aborted" && isMounted && !isSpeakingRef.current) setTimeout(startRecognition, 1000);
     };
 
     recognition.onresult = async (e) => {
       const transcript = e.results[e.results.length - 1][0].transcript.trim();
       if (transcript.toLowerCase().includes(userData.assistantName.toLowerCase())) {
-        setAiText("");
         setUserText(transcript);
         recognition.stop();
         isRecognizingRef.current = false;
         setListening(false);
+
         const data = await getGeminiResponse(transcript);
         handleCommand(data);
-        setAiText(data.response);
         setUserText("");
       }
     };
 
     window.speechSynthesis.onvoiceschanged = () => {
-      const greeting = new SpeechSynthesisUtterance(`Hello ${userData.name}, what can I help you with?`)
-      greeting.lang = 'hi-IN';
-      // greeting.onend = () => {
-      //   startTimeout()
-      // };
+      const greeting = new SpeechSynthesisUtterance(`Hello ${userData.name}, what can I help you with?`);
+      greeting.lang = "hi-IN";
       window.speechSynthesis.speak(greeting);
-    }
-
-    // const safeRecognition = () => {
-    //   if (!isSpeakingRef.current && !isRecognizingRef.current) {
-    //     try {
-    //       recognitionRef.current?.start();
-    //       console.log("Recognition requested to start");
-    //     } catch (error) {
-    //       if (error.name !== "InvalidStateError")
-    //          console.error("start error:", error);
-    //     }
-    //     // recognition.start();
-    //   }
-    //   // recognition.start();
-    // };
-
-    // Start first time
-    // safeRecognition();
-
-    // const fallback = setInterval(() => {
-    //   if (!isSpeakingRef.current && !isRecognizingRef.current) {
-    //     safeRecognition();
-    //   }
-    // }, 10000);
+    };
 
     return () => {
       isMounted = false;
-      clearTimeout(startTimeout);
       recognition.stop();
       setListening(false);
       isRecognizingRef.current = false;
     };
-  }, []);
+  }, [userData]);
 
   return (
-    <div className="w-full h-screen bg-gradient-to-br from-black via-[#001f33] to-[#004466] flex flex-col gap-[50px] justify-center items-center gap-[15px] overflow-hidden">
+    <div className="w-full h-screen bg-gradient-to-br from-black via-[#001f33] to-[#004466] flex flex-col justify-center items-center gap-[15px] overflow-hidden">
       
       {/* Hamburger Open */}
       <FiMenu onClick={() => setHam(true)} className="lg:hidden text-white absolute top-[20px] right-[20px] w-[25px] h-[25px]"/>
-      
+
       {/* Sidebar Menu */}
       <div className={`absolute top-0 w-full h-full bg-black backdrop-blur-lg p-[20px] flex flex-col gap-[20px] items-start transition-transform duration-300 ${ham ? "translate-x-0" : "-translate-x-full"}`}>
         <RxCross2 onClick={() => setHam(false)} className="lg:hidden text-white absolute top-[20px] right-[20px] w-[25px] h-[25px]"/>
-
         <button onClick={handleLogout} className="min-w-[150px] h-[60px] mt-[30px] text-[#040720] font-semibold bg-white rounded-full text-[19px] cursor-pointer hover:bg-gray-200 transition">
           Log Out
         </button>
-
         <button onClick={() => navigate("/customize")} className="min-w-[150px] h-[60px] text-black font-semibold bg-white rounded-full text-[19px] cursor-pointer hover:bg-gray-200 transition">
           Customize your Assistant
         </button>
-
         <div className="w-full h-[1px] bg-gray-400 my-4"></div>
         <h1 className="text-white font-semibold text-[19px]">History</h1>
         <div className="w-full h-[400px] overflow-y-auto flex flex-col gap-2">
-          {userData.history?.map((his) => (
-            <span className="text-gray-200 text-[18px] truncate">{his}</span>
+          {userData.history?.map((his, i) => (
+            <span key={i} className="text-gray-200 text-[18px] truncate">{his}</span>
           ))}
         </div>
       </div>
@@ -237,7 +201,6 @@ function Home() {
       <button onClick={handleLogout} className="hidden lg:block min-w-[150px] h-[60px] absolute top-[20px] right-[20px] text-black font-semibold bg-white rounded-full text-[19px] cursor-pointer hover:bg-gray-200 transition">
         Log Out
       </button>
-
       <button onClick={() => navigate("/customize")} className="hidden lg:block min-w-[150px] h-[60px] absolute top-[100px] right-[20px] text-black font-semibold bg-white rounded-full text-[19px] cursor-pointer px-[20px] py-[10px] hover:bg-gray-200 transition">
         Customize your Assistant
       </button>

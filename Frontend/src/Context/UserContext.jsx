@@ -27,9 +27,11 @@ function UserContext({ children }) {
   try {
     const res = await axios.post(
       `${serverUrl}/api/user/asktoassistant`,
-      { prompt: message },
+      { command: message },
       { withCredentials: true }
     );
+
+    console.log("Gemini response:", res);
 
     let data = res.data;
 
@@ -62,11 +64,18 @@ function UserContext({ children }) {
   }, []);
 
   const value = {
-    serverUrl, userData,setUserData,backendImage,setBackendImage,frontendImage,
-    setFrontendImage,
-    selectedImage,
-    setSelectedImage, getGeminiResponse
-  };
+  serverUrl,
+  userData,
+  setUserData,
+  backendImage,
+  setBackendImage,
+  frontendImage,
+  setFrontendImage,
+  selectedImage,
+  setSelectedImage,
+  getGeminiResponse
+};
+
 
   return (
     <UserDataContext.Provider value={value}>
