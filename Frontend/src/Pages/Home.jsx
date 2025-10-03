@@ -61,7 +61,7 @@ function Home() {
     setTimeout(() => startRecognition(), 800);
   };
 };
-
+ 
 
   // ✅ Handle commands
   const handleCommand = (data) => {
@@ -70,9 +70,11 @@ function Home() {
     let { type = "general", userInput = "", response = "" } = data;
 
     response = response.replace(/```json|```/g, "").trim();
+    response = JSON.parse(response);
+    console.log("Response for speaking:", typeof response, response.response );
 
-    setAiText(response);
-    speak(response);
+    setAiText(response.response);
+    speak(response.response);
 
     const query = encodeURIComponent(userInput);
 
